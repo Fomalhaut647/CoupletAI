@@ -6,8 +6,10 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm, trange
 from module import Tokenizer
 import logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -27,10 +29,10 @@ class CoupletFeatures(object):
 def read_examples(fdir: Path):
     seqs = []
     tags = []
-    with open(fdir / "in.txt", 'r', encoding='utf-8') as f:
+    with open(fdir / "in.txt", "r", encoding="utf-8") as f:
         for line in f.readlines():
             seqs.append(line.split())
-    with open(fdir / "out.txt", 'r', encoding='utf-8') as f:
+    with open(fdir / "out.txt", "r", encoding="utf-8") as f:
         for line in f.readlines():
             tags.append(line.split())
     examples = [CoupletExample(seq, tag) for seq, tag in zip(seqs, tags)]
@@ -46,12 +48,12 @@ def convert_examples_to_features(examples: List[CoupletExample], tokenizer: Toke
     return features
 
 
-def convert_features_to_tensors(features: List[CoupletFeatures], tokenizer: Tokenizer, max_seq_len: int):
+def convert_features_to_tensors(
+    features: List[CoupletFeatures], tokenizer: Tokenizer, max_seq_len: int
+):
     total = len(features)
-    input_ids = torch.full((total, max_seq_len),
-                           tokenizer.pad_id, dtype=torch.long)
-    target_ids = torch.full((total, max_seq_len),
-                            tokenizer.pad_id, dtype=torch.long)
+    input_ids = torch.full((total, max_seq_len), tokenizer.pad_id, dtype=torch.long)
+    target_ids = torch.full((total, max_seq_len), tokenizer.pad_id, dtype=torch.long)
     masks = torch.ones(total, max_seq_len, dtype=torch.bool)
     lens = torch.zeros(total, dtype=torch.long)
     for i, f in enumerate(tqdm(features, desc="creating tensors")):
@@ -71,10 +73,10 @@ def create_dataset(fdir: Path, tokenizer: Tokenizer, max_seq_len: int):
     return dataset
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default='couplet', type=str)
-    parser.add_argument("--output", default='dataset', type=str)
+    parser.add_argument("--input", default="couplet", type=str)
+    parser.add_argument("--output", default="dataset", type=str)
     parser.add_argument("--max_seq_len", default=32, type=int)
     args = parser.parse_args()
 
@@ -88,10 +90,8 @@ if __name__ == '__main__':
     tokenizer.build(vocab_file)
 
     logger.info("creating dataset...")
-    train_dataset = create_dataset(
-        input_dir / "train", tokenizer, args.max_seq_len)
-    test_dataset = create_dataset(
-        input_dir / "test", tokenizer, args.max_seq_len)
+    train_dataset = create_dataset(input_dir / "train", tokenizer, args.max_seq_len)
+    test_dataset = create_dataset(input_dir / "test", tokenizer, args.max_seq_len)
 
     logger.info("saving dataset...")
     tokenizer.save_pretrained(output_dir / "vocab.pkl")

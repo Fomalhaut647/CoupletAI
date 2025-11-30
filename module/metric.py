@@ -24,5 +24,5 @@ def calc_rouge_l(cand: List[int or str], ref: List[int or str], beta: float = 1.
     eps = 1e-10
     r = lcs * 1.0 / (eps + len_ref)
     p = lcs * 1.0 / (eps + len_cand)
-    f = ((1 + beta**2) * r * p) / (eps + r + beta ** 2 * p)
+    f = ((1 + beta**2) * r * p) / (eps + r + beta**2 * p)
     return f
