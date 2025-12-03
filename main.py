@@ -22,6 +22,8 @@ from module.model import (
 from module import Tokenizer, init_model_by_key
 from module.metric import calc_bleu, calc_rouge_l
 
+torch.serialization.add_safe_globals([torch.utils.data.dataset.TensorDataset])
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
