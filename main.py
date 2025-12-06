@@ -1,7 +1,9 @@
-import argparse
 from pathlib import Path
 import sys
 import time
+from types import SimpleNamespace
+
+import typer
 from rich.traceback import install
 from loguru import logger
 
@@ -35,31 +37,7 @@ logger.add(
 
 torch.serialization.add_safe_globals([torch.utils.data.dataset.TensorDataset])
 
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", default=20, type=int)
-    parser.add_argument("--batch_size", default=768, type=int)
-    parser.add_argument("--max_seq_len", default=32, type=int)
-    parser.add_argument("--lr", default=0.001, type=float)
-    parser.add_argument("--no_cuda", action="store_true")
-    parser.add_argument("-m", "--model", default="transformer", type=str)
-    parser.add_argument("--max_grad_norm", default=3.0, type=float)
-    parser.add_argument("--dir", default="dataset", type=str)
-    parser.add_argument("--output", default="output", type=str)
-    parser.add_argument("--logdir", default="runs", type=str)
-    parser.add_argument("--embed_dim", default=128, type=int)
-    parser.add_argument("--n_layer", default=1, type=int)
-    parser.add_argument("--hidden_dim", default=256, type=int)
-    parser.add_argument("--ff_dim", default=512, type=int)
-    parser.add_argument("--n_head", default=8, type=int)
-
-    parser.add_argument("--test_epoch", default=1, type=int)
-    parser.add_argument("--save_epoch", default=10, type=int)
-
-    parser.add_argument("--embed_drop", default=0.2, type=float)
-    parser.add_argument("--hidden_drop", default=0.1, type=float)
-    return parser.parse_args()
+app = typer.Typer(help="Training entrypoint for the couplet generation models.")
 
 
 def auto_evaluate(model, testloader, tokenizer):
@@ -111,8 +89,7 @@ def save_model(filename, model):
     torch.save(model.state_dict(), filename)
 
 
-def run():
-    args = get_args()
+def run(args):
     fdir = Path(args.dir)
     tb = SummaryWriter(args.logdir)
     device = torch.device(
@@ -177,5 +154,65 @@ def run():
     save_model(output_dir / f"{model.__class__.__name__.lower()}.bin", model)
 
 
+@app.command()
+def main(
+    epochs: int = typer.Option(20, "--epochs", "-e", help="Number of training epochs."),
+    batch_size: int = typer.Option(768, "--batch-size", help="Training batch size."),
+    max_seq_len: int = typer.Option(
+        32, "--max-seq-len", help="Maximum sequence length."
+    ),
+    lr: float = typer.Option(0.001, "--lr", help="Learning rate."),
+    no_cuda: bool = typer.Option(
+        False, "--no-cuda", help="Force CPU even if CUDA is available."
+    ),
+    model: str = typer.Option(
+        "transformer", "-m", "--model", help="Model architecture key."
+    ),
+    max_grad_norm: float = typer.Option(
+        3.0, "--max-grad-norm", help="Gradient clipping norm."
+    ),
+    dir: Path = typer.Option(
+        Path("dataset"), "--dir", help="Directory containing dataset tensors."
+    ),
+    output: Path = typer.Option(
+        Path("output"), "--output", help="Directory to store model checkpoints."
+    ),
+    logdir: Path = typer.Option(
+        Path("runs"), "--logdir", help="TensorBoard log directory."
+    ),
+    embed_dim: int = typer.Option(128, "--embed-dim"),
+    n_layer: int = typer.Option(1, "--n-layer"),
+    hidden_dim: int = typer.Option(256, "--hidden-dim"),
+    ff_dim: int = typer.Option(512, "--ff-dim"),
+    n_head: int = typer.Option(8, "--n-head"),
+    test_epoch: int = typer.Option(1, "--test-epoch"),
+    save_epoch: int = typer.Option(10, "--save-epoch"),
+    embed_drop: float = typer.Option(0.2, "--embed-drop"),
+    hidden_drop: float = typer.Option(0.1, "--hidden-drop"),
+):
+    args = SimpleNamespace(
+        epochs=epochs,
+        batch_size=batch_size,
+        max_seq_len=max_seq_len,
+        lr=lr,
+        no_cuda=no_cuda,
+        model=model,
+        max_grad_norm=max_grad_norm,
+        dir=dir,
+        output=output,
+        logdir=logdir,
+        embed_dim=embed_dim,
+        n_layer=n_layer,
+        hidden_dim=hidden_dim,
+        ff_dim=ff_dim,
+        n_head=n_head,
+        test_epoch=test_epoch,
+        save_epoch=save_epoch,
+        embed_drop=embed_drop,
+        hidden_drop=hidden_drop,
+    )
+    run(args)
+
+
 if __name__ == "__main__":
-    run()
+    app()
