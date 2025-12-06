@@ -42,11 +42,13 @@ class Transformer(nn.Module):
         tok_emb = self.tok_embedding(x)
         max_seq_len = x.shape[-1]
         pos_emb = self.pos_embedding(torch.arange(max_seq_len).to(x.device))
+
         x = tok_emb + pos_emb.unsqueeze(0)
         x = self.embed_dropout(x)
         x = self.linear1(x)
         x = self.encode(x, mask)
         x = self.linear2(x)
+
         probs = torch.matmul(x, self.tok_embedding.weight.t())
         return probs
 
@@ -71,6 +73,7 @@ class BiLSTM(nn.Module):
             batch_first=True,
             bidirectional=True,
         )
+
         self.embed_dropout = nn.Dropout(embed_drop)
         self.linear = nn.Linear(hidden_dim, embed_dim)
 

@@ -47,6 +47,7 @@ def auto_evaluate(model, testloader, tokenizer):
     rls = []
     device = next(model.parameters()).device
     model.eval()
+
     for step, batch in enumerate(testloader):
         input_ids, masks, lens = tuple(t.to(device) for t in batch[:-1])
         target_ids = batch[-1]
@@ -54,6 +55,7 @@ def auto_evaluate(model, testloader, tokenizer):
             logits = model(input_ids, masks)
             # preds.shape=(batch_size, max_seq_len)
             _, preds = torch.max(logits, dim=-1)
+
         for seq, tag in zip(preds.tolist(), target_ids.tolist()):
             seq = list(filter(lambda x: x != tokenizer.pad_id, seq))
             tag = list(filter(lambda x: x != tokenizer.pad_id, tag))
@@ -61,6 +63,7 @@ def auto_evaluate(model, testloader, tokenizer):
             rl = calc_rouge_l(seq, tag)
             bleus.append(bleu)
             rls.append(rl)
+
     return sum(bleus) / len(bleus), sum(rls) / len(rls)
 
 
@@ -77,6 +80,7 @@ def predict_demos(model, tokenizer: Tokenizer):
     sents = [torch.tensor(tokenizer.encode(sent)).unsqueeze(0) for sent in demos]
     model.eval()
     device = next(model.parameters()).device
+
     for i, sent in enumerate(sents):
         sent = sent.to(device)
         with torch.no_grad():
@@ -97,17 +101,22 @@ def run(args):
     device = torch.device(
         "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu"
     )
+
     output_dir = Path(args.output)
     output_dir.mkdir(exist_ok=True, parents=True)
+
     logger.info(args)
+
     logger.info(f"loading vocab...")
     tokenizer = Tokenizer.from_pretrained(fdir / "vocab.pkl")
+
     logger.info(f"loading dataset...")
     train_dataset = torch.load(fdir / "train.pkl")
     test_dataset = torch.load(fdir / "test.pkl")
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     print(len(train_loader))
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
+
     logger.info(f"initializing model...")
     model = init_model_by_key(args, tokenizer)
     model.to(device)
@@ -118,11 +127,13 @@ def run(args):
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min")
     # logger.info(f"num gpu: {torch.cuda.device_count()}")
     global_step = 0
+
     for epoch in range(args.epochs):
         logger.info(f"***** Epoch {epoch} *****")
         model.train()
         t1 = time.time()
         accu_loss = 0.0
+
         for step, batch in enumerate(
             track(train_loader, description=f"Epoch {epoch + 1}/{args.epochs}")
         ):
@@ -141,13 +152,17 @@ def run(args):
 
             optimizer.step()
             global_step += 1
+
         scheduler.step(accu_loss)
+
         t2 = time.time()
         logger.info(f"epoch time: {t2-t1:.5}, accumulation loss: {accu_loss:.6}")
+
         if (epoch + 1) % args.test_epoch == 0:
             predict_demos(model, tokenizer)
             bleu, rl = auto_evaluate(model, test_loader, tokenizer)
             logger.info(f"BLEU: {round(bleu, 9)}, Rouge-L: {round(rl, 8)}")
+
         if (epoch + 1) % args.save_epoch == 0:
             filename = f"{model.__class__.__name__.lower()}_{epoch + 1}.bin"
             filename = output_dir / filename

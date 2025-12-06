@@ -25,11 +25,13 @@ class Tokenizer(object):
         if isinstance(vocab_file, str):
             vocab_file = Path(vocab_file)
         token_to_ix = {"[PAD]": 0, "[UNK]": 1}
+
         with vocab_file.open("r", encoding="utf-8") as f:
             for token in f.readlines():
                 token = token.rstrip("\n")
                 if token not in token_to_ix:
                     token_to_ix[token] = len(token_to_ix)
+
         self.token_to_ix = token_to_ix
         self.ix_to_token = {v: k for k, v in token_to_ix.items()}
 
