@@ -1,16 +1,19 @@
 from typing import List, Tuple
 import argparse
 from pathlib import Path
+import sys
 import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm, trange
 from module import Tokenizer
-import logging
+from loguru import logger
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+logger.remove()
+logger.add(
+    sys.stderr,
+    level="INFO",
+    format="{time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
 )
-logger = logging.getLogger(__name__)
 
 
 class CoupletExample(object):

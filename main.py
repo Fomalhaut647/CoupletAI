@@ -1,8 +1,9 @@
 import argparse
-import logging
 from pathlib import Path
+import sys
 import time
 from rich.traceback import install
+from loguru import logger
 
 import torch
 import torch.nn as nn
@@ -25,10 +26,12 @@ from module.metric import calc_bleu, calc_rouge_l
 
 install(show_locals=True)
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+logger.remove()
+logger.add(
+    sys.stderr,
+    level="INFO",
+    format="{time:YYYY-MM-DD HH:mm:ss} - {level} - {message}",
 )
-logger = logging.getLogger(__name__)
 
 torch.serialization.add_safe_globals([torch.utils.data.dataset.TensorDataset])
 
