@@ -2,6 +2,7 @@ import argparse
 import logging
 from pathlib import Path
 import time
+from rich.traceback import install
 
 import torch
 import torch.nn as nn
@@ -22,12 +23,14 @@ from module.model import (
 from module import Tokenizer, init_model_by_key
 from module.metric import calc_bleu, calc_rouge_l
 
-torch.serialization.add_safe_globals([torch.utils.data.dataset.TensorDataset])
+install(show_locals=True)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+torch.serialization.add_safe_globals([torch.utils.data.dataset.TensorDataset])
 
 
 def get_args():
@@ -100,9 +103,9 @@ def predict_demos(model, tokenizer: Tokenizer):
         logger.info(f"上联：{demos[i]}。 预测的下联：{pred}")
 
 
-def save_model(filename, model, args, tokenizer):
-    info_dict = {"model": model.state_dict(), "args": args, "tokenzier": tokenizer}
-    torch.save(info_dict, filename)
+def save_model(filename, model):
+    # Only persist the model weights to simplify checkpoint loading.
+    torch.save(model.state_dict(), filename)
 
 
 def run():
@@ -164,9 +167,11 @@ def run():
             bleu, rl = auto_evaluate(model, test_loader, tokenizer)
             logger.info(f"BLEU: {round(bleu, 9)}, Rouge-L: {round(rl, 8)}")
         if (epoch + 1) % args.save_epoch == 0:
-            filename = f"{model.__class__.__name__}_{epoch + 1}.bin"
+            filename = f"{model.__class__.__name__.lower()}_{epoch + 1}.bin"
             filename = output_dir / filename
-            save_model(filename, model, args, tokenizer)
+            save_model(filename, model)
+
+    save_model(output_dir / f"{model.__class__.__name__.lower()}.bin", model)
 
 
 if __name__ == "__main__":
