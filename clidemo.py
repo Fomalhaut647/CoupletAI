@@ -1,27 +1,56 @@
-import argparse
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
+import typer
+
 from module import Tokenizer, init_model_by_key
 
+app = typer.Typer(help="Command-line demo for couplet generation.")
 
-def run():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", default="output", type=str)
-    parser.add_argument("--vocab-path", default="dataset/vocab.pkl", type=str)
-    parser.add_argument("-m", "--model", default="transformer", type=str)
-    parser.add_argument("-e", "--epoch", default=0, type=int)
-    parser.add_argument("--max_seq_len", default=32, type=int)
-    parser.add_argument("--embed_dim", default=128, type=int)
-    parser.add_argument("--n_layer", default=1, type=int)
-    parser.add_argument("--hidden_dim", default=256, type=int)
-    parser.add_argument("--ff_dim", default=512, type=int)
-    parser.add_argument("--n_head", default=8, type=int)
-    parser.add_argument("--embed_drop", default=0.2, type=float)
-    parser.add_argument("--hidden_drop", default=0.1, type=float)
-    parser.add_argument("-s", "--stop_flag", default="q", type=str)
-    parser.add_argument("-c", "--cuda", action="store_true")
-    args = parser.parse_args()
+
+@app.command()
+def main(
+    path: Path = typer.Option(
+        Path("output"),
+        "-p",
+        "--path",
+        help="Directory containing saved model checkpoints.",
+    ),
+    vocab_path: Path = typer.Option(
+        Path("dataset/vocab.pkl"), "--vocab-path", help="Path to the vocab file."
+    ),
+    model: str = typer.Option(
+        "transformer", "-m", "--model", help="Model key to load."
+    ),
+    epoch: int = typer.Option(0, "-e", "--epoch", help="Epoch checkpoint to load."),
+    max_seq_len: int = typer.Option(32, "--max-seq-len"),
+    embed_dim: int = typer.Option(128, "--embed-dim"),
+    n_layer: int = typer.Option(1, "--n-layer"),
+    hidden_dim: int = typer.Option(256, "--hidden-dim"),
+    ff_dim: int = typer.Option(512, "--ff-dim"),
+    n_head: int = typer.Option(8, "--n-head"),
+    embed_drop: float = typer.Option(0.2, "--embed-drop"),
+    hidden_drop: float = typer.Option(0.1, "--hidden-drop"),
+    stop_flag: str = typer.Option("q", "-s", "--stop-flag", help="Exit token."),
+    cuda: bool = typer.Option(False, "-c", "--cuda", help="Enable CUDA if available."),
+):
+    args = SimpleNamespace(
+        path=path,
+        vocab_path=vocab_path,
+        model=model,
+        epoch=epoch,
+        max_seq_len=max_seq_len,
+        embed_dim=embed_dim,
+        n_layer=n_layer,
+        hidden_dim=hidden_dim,
+        ff_dim=ff_dim,
+        n_head=n_head,
+        embed_drop=embed_drop,
+        hidden_drop=hidden_drop,
+        stop_flag=stop_flag,
+        cuda=cuda,
+    )
     print("loading tokenizer...")
     tokenizer = Tokenizer.from_pretrained(Path(args.vocab_path))
     print("loading model...")
@@ -53,4 +82,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    app()

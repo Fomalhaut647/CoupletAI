@@ -1,30 +1,13 @@
-import argparse
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
+import typer
 from flask import Flask, request, render_template
 
 from module import Tokenizer, init_model_by_key
 
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--path", default="output", type=str)
-    parser.add_argument("--vocab-path", default="dataset/vocab.pkl", type=str)
-    parser.add_argument("-m", "--model", default="transformer", type=str)
-    parser.add_argument("-e", "--epoch", default=0, type=int)
-    parser.add_argument("--max_seq_len", default=32, type=int)
-    parser.add_argument("--embed_dim", default=128, type=int)
-    parser.add_argument("--n_layer", default=1, type=int)
-    parser.add_argument("--hidden_dim", default=256, type=int)
-    parser.add_argument("--ff_dim", default=512, type=int)
-    parser.add_argument("--n_head", default=8, type=int)
-    parser.add_argument("--embed_drop", default=0.2, type=float)
-    parser.add_argument("--hidden_drop", default=0.1, type=float)
-    parser.add_argument("--host", default="0.0.0.0", type=str)
-    parser.add_argument("--port", default=5000, type=int)
-    parser.add_argument("--cuda", action="store_true")
-    return parser.parse_args()
+cli = typer.Typer(help="Flask-based web demo for couplet generation.")
 
 
 class Context(object):
@@ -75,7 +58,57 @@ def index():
     return render_template("index.html", coupletdown=coupletdown)
 
 
-if __name__ == "__main__":
-    args = parse_args()
+@cli.command()
+def main(
+    path: Path = typer.Option(
+        Path("output"),
+        "-p",
+        "--path",
+        help="Directory containing saved model checkpoints.",
+    ),
+    vocab_path: Path = typer.Option(
+        Path("dataset/vocab.pkl"), "--vocab-path", help="Path to the vocab file."
+    ),
+    model: str = typer.Option(
+        "transformer", "-m", "--model", help="Model key to load."
+    ),
+    epoch: int = typer.Option(0, "-e", "--epoch", help="Epoch checkpoint to load."),
+    max_seq_len: int = typer.Option(32, "--max-seq-len"),
+    embed_dim: int = typer.Option(128, "--embed-dim"),
+    n_layer: int = typer.Option(1, "--n-layer"),
+    hidden_dim: int = typer.Option(256, "--hidden-dim"),
+    ff_dim: int = typer.Option(512, "--ff-dim"),
+    n_head: int = typer.Option(8, "--n-head"),
+    embed_drop: float = typer.Option(0.2, "--embed-drop"),
+    hidden_drop: float = typer.Option(0.1, "--hidden-drop"),
+    host: str = typer.Option("0.0.0.0", "--host"),
+    port: int = typer.Option(5000, "--port"),
+    cuda: bool = typer.Option(False, "--cuda", help="Enable CUDA if available."),
+):
+    """
+    Launch the Flask web interface for generating couplets.
+    """
+    global ctx
+    args = SimpleNamespace(
+        path=path,
+        vocab_path=vocab_path,
+        model=model,
+        epoch=epoch,
+        max_seq_len=max_seq_len,
+        embed_dim=embed_dim,
+        n_layer=n_layer,
+        hidden_dim=hidden_dim,
+        ff_dim=ff_dim,
+        n_head=n_head,
+        embed_drop=embed_drop,
+        hidden_drop=hidden_drop,
+        host=host,
+        port=port,
+        cuda=cuda,
+    )
     ctx = Context(args)
     app.run(host=args.host, port=args.port)
+
+
+if __name__ == "__main__":
+    cli()

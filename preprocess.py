@@ -1,10 +1,12 @@
 from typing import List, Tuple
-import argparse
 from pathlib import Path
 import sys
+
 import torch
+import typer
 from torch.utils.data import TensorDataset
 from tqdm import tqdm, trange
+
 from module import Tokenizer
 from loguru import logger
 
@@ -14,6 +16,8 @@ logger.add(
     level="INFO",
     format="{time:YYYY-MM-DD HH:mm:ss} - {name} - {level} - {message}",
 )
+
+app = typer.Typer(help="Couplet dataset preprocessing utilities.")
 
 
 class CoupletExample(object):
@@ -76,15 +80,29 @@ def create_dataset(fdir: Path, tokenizer: Tokenizer, max_seq_len: int):
     return dataset
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="couplet", type=str)
-    parser.add_argument("--output", default="dataset", type=str)
-    parser.add_argument("--max_seq_len", default=32, type=int)
-    args = parser.parse_args()
-
-    input_dir = Path(args.input)
-    output_dir = Path(args.output)
+@app.command()
+def main(
+    input: Path = typer.Option(
+        Path("couplet"),
+        "--input",
+        "-i",
+        help="Directory containing input data (with in.txt/out.txt).",
+    ),
+    output: Path = typer.Option(
+        Path("dataset"),
+        "--output",
+        "-o",
+        help="Directory to write processed dataset artifacts.",
+    ),
+    max_seq_len: int = typer.Option(
+        32, "--max-seq-len", "-m", help="Maximum sequence length."
+    ),
+):
+    """
+    Build tokenizer and dataset tensors from raw couplet data.
+    """
+    input_dir = Path(input)
+    output_dir = Path(output)
     output_dir.parent.mkdir(exist_ok=True, parents=True)
     vocab_file = input_dir / "vocabs"
 
@@ -93,10 +111,14 @@ if __name__ == "__main__":
     tokenizer.build(vocab_file)
 
     logger.info("creating dataset...")
-    train_dataset = create_dataset(input_dir / "train", tokenizer, args.max_seq_len)
-    test_dataset = create_dataset(input_dir / "test", tokenizer, args.max_seq_len)
+    train_dataset = create_dataset(input_dir / "train", tokenizer, max_seq_len)
+    test_dataset = create_dataset(input_dir / "test", tokenizer, max_seq_len)
 
     logger.info("saving dataset...")
     tokenizer.save_pretrained(output_dir / "vocab.pkl")
     torch.save(train_dataset, output_dir / "train.pkl")
     torch.save(test_dataset, output_dir / "test.pkl")
+
+
+if __name__ == "__main__":
+    app()
