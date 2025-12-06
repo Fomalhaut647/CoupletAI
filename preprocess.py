@@ -5,7 +5,7 @@ import sys
 import torch
 import typer
 from torch.utils.data import TensorDataset
-from tqdm import tqdm, trange
+from rich.progress import track
 
 from module import Tokenizer
 from loguru import logger
@@ -48,7 +48,7 @@ def read_examples(fdir: Path):
 
 def convert_examples_to_features(examples: List[CoupletExample], tokenizer: Tokenizer):
     features = []
-    for example in tqdm(examples, desc="creating features"):
+    for example in track(examples, description="creating features"):
         seq_ids = tokenizer.convert_tokens_to_ids(example.seq)
         tag_ids = tokenizer.convert_tokens_to_ids(example.tag)
         features.append(CoupletFeatures(seq_ids, tag_ids))
@@ -63,7 +63,7 @@ def convert_features_to_tensors(
     target_ids = torch.full((total, max_seq_len), tokenizer.pad_id, dtype=torch.long)
     masks = torch.ones(total, max_seq_len, dtype=torch.bool)
     lens = torch.zeros(total, dtype=torch.long)
-    for i, f in enumerate(tqdm(features, desc="creating tensors")):
+    for i, f in enumerate(track(features, description="creating tensors")):
         real_len = min(len(f.input_ids), max_seq_len)
         input_ids[i, :real_len] = torch.tensor(f.input_ids[:real_len])
         target_ids[i, :real_len] = torch.tensor(f.target_ids[:real_len])
