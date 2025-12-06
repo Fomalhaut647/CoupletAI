@@ -38,8 +38,6 @@ def get_args():
     parser.add_argument("--lr", default=0.001, type=float)
     parser.add_argument("--no_cuda", action="store_true")
     parser.add_argument("-m", "--model", default="transformer", type=str)
-    parser.add_argument("--fp16", action="store_true")
-    parser.add_argument("--fp16_opt_level", default="O1", type=str)
     parser.add_argument("--max_grad_norm", default=3.0, type=float)
     parser.add_argument("--dir", default="dataset", type=str)
     parser.add_argument("--output", default="output", type=str)
@@ -129,22 +127,10 @@ def run():
     model.to(device)
     loss_function = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_id)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    if args.fp16:
-        try:
-            from apex import amp
-
-            amp.register_half_function(torch, "einsum")
-            model, optimizer = amp.initialize(
-                model, optimizer, opt_level=args.fp16_opt_level
-            )
-        except ImportError:
-            raise ImportError(
-                "Please install apex from https://www.github.com/nvidia/apex to use fp16 training."
-            )
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    #     model = torch.nn.DataParallel(model)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min")
-    logger.info(f"num gpu: {torch.cuda.device_count()}")
+    # logger.info(f"num gpu: {torch.cuda.device_count()}")
     global_step = 0
     for epoch in range(args.epochs):
         logger.info(f"***** Epoch {epoch} *****")
@@ -159,18 +145,11 @@ def run():
             loss = loss_function(
                 logits.view(-1, tokenizer.vocab_size), target_ids.view(-1)
             )
-            if torch.cuda.device_count() > 1:
-                loss = loss.mean()
+            # if torch.cuda.device_count() > 1:
+            #     loss = loss.mean()
             accu_loss += loss.item()
-            if args.fp16:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-                torch.nn.utils.clip_grad_norm_(
-                    amp.master_params(optimizer), args.max_grad_norm
-                )
-            else:
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
             optimizer.step()
             if step % 100 == 0:
