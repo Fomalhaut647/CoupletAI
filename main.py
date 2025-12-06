@@ -5,6 +5,8 @@ from types import SimpleNamespace
 
 import typer
 from rich.traceback import install
+from rich import print
+from rich.progress import track
 from loguru import logger
 
 import torch
@@ -104,6 +106,7 @@ def run(args):
     train_dataset = torch.load(fdir / "train.pkl")
     test_dataset = torch.load(fdir / "test.pkl")
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    print(len(train_loader))
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
     logger.info(f"initializing model...")
     model = init_model_by_key(args, tokenizer)
@@ -120,7 +123,9 @@ def run(args):
         model.train()
         t1 = time.time()
         accu_loss = 0.0
-        for step, batch in enumerate(train_loader):
+        for step, batch in enumerate(
+            track(train_loader, description=f"Epoch {epoch + 1}/{args.epochs}")
+        ):
             optimizer.zero_grad()
             batch = tuple(t.to(device) for t in batch)
             input_ids, masks, lens, target_ids = batch
@@ -135,9 +140,6 @@ def run(args):
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
 
             optimizer.step()
-            if step % 100 == 0:
-                tb.add_scalar("loss", loss.item(), global_step)
-                logger.info(f"[epoch]: {epoch}, [batch]: {step}, [loss]: {loss.item()}")
             global_step += 1
         scheduler.step(accu_loss)
         t2 = time.time()
@@ -157,11 +159,11 @@ def run(args):
 @app.command()
 def main(
     epochs: int = typer.Option(20, "--epochs", "-e", help="Number of training epochs."),
-    batch_size: int = typer.Option(768, "--batch-size", help="Training batch size."),
+    batch_size: int = typer.Option(8192, "--batch-size", help="Training batch size."),
     max_seq_len: int = typer.Option(
         32, "--max-seq-len", help="Maximum sequence length."
     ),
-    lr: float = typer.Option(0.001, "--lr", help="Learning rate."),
+    lr: float = typer.Option(0.005, "--lr", help="Learning rate."),
     no_cuda: bool = typer.Option(
         False, "--no-cuda", help="Force CPU even if CUDA is available."
     ),
