@@ -18,6 +18,7 @@ class Context(object):
         )
         self.tokenizer = Tokenizer.from_pretrained(Path(args.vocab_path))
         self.model = init_model_by_key(args, self.tokenizer)
+
         if args.epoch == 0:
             state_dict = torch.load(
                 Path(args.path) / f"{args.model}.bin", map_location=self.device
@@ -27,6 +28,7 @@ class Context(object):
                 Path(args.path) / f"{args.model}_{str(args.epoch)}.bin",
                 map_location=self.device,
             )
+
         self.model.load_state_dict(state_dict)
         self.model.to(self.device)
         self.model.eval()

@@ -63,12 +63,14 @@ def convert_features_to_tensors(
     target_ids = torch.full((total, max_seq_len), tokenizer.pad_id, dtype=torch.long)
     masks = torch.ones(total, max_seq_len, dtype=torch.bool)
     lens = torch.zeros(total, dtype=torch.long)
+
     for i, f in enumerate(track(features, description="creating tensors")):
         real_len = min(len(f.input_ids), max_seq_len)
         input_ids[i, :real_len] = torch.tensor(f.input_ids[:real_len])
         target_ids[i, :real_len] = torch.tensor(f.target_ids[:real_len])
         masks[i, :real_len] = 0
         lens[i] = real_len
+
     return input_ids, masks, lens, target_ids
 
 

@@ -53,6 +53,7 @@ def main(
     )
     print("loading tokenizer...")
     tokenizer = Tokenizer.from_pretrained(Path(args.vocab_path))
+
     print("loading model...")
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
     model = init_model_by_key(args, tokenizer)
@@ -65,9 +66,11 @@ def main(
         state_dict = torch.load(
             Path(args.path) / f"{args.model}_{str(args.epoch)}.bin", map_location=device
         )
+
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
+
     while True:
         question = input("上联：")
         if question == args.stop_flag.lower():
