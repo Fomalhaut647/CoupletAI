@@ -20,11 +20,19 @@ class Tokenizer(object):
     def unk_id(self):
         return self.token_to_ix["[UNK]"]
 
+    @property
+    def sep_id(self):
+        return self.token_to_ix["[SEP]"]
+
     def build(self, vocab_file: str or Path):
         """Build tokenizer from a vocab file."""
         if isinstance(vocab_file, str):
             vocab_file = Path(vocab_file)
-        token_to_ix = {"[PAD]": 0, "[UNK]": 1}
+        token_to_ix = {
+            "[PAD]": 0,
+            "[UNK]": 1,
+            "[SEP]": 2,
+        }
 
         with vocab_file.open("r", encoding="utf-8") as f:
             for token in f.readlines():
