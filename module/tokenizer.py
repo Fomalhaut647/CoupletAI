@@ -83,6 +83,7 @@ class Tokenizer(object):
     def convert_ids_to_tokens(self, ids: List[int], ignore_pad: bool = False):
         tokens = []
         for t in ids:
-            if ignore_pad and t != self.pad_id:
-                tokens.append(self.ix_to_token[t])
+            if ignore_pad and t == self.pad_id:
+                continue
+            tokens.append(self.ix_to_token[t])
         return tokens
