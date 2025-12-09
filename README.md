@@ -1,8 +1,8 @@
 # CoupletAI
 用 PyTorch 实现的自动对对联系统，支持多种模型。一般来讲，给定一句话生成另一句话是序列生成问题，本项目根据上下联字数相等的特点将其转化为序列标注问题，即用下联去标注上联。  
 ## Dependencies
-* python 3.6+
-* pytorch 1.2+
+* python 3.12+
+* pytorch 2.9+
 * flask (optional)
 ## Dataset
 数据集包含70多万条对联数据(26MB)，下载请[点击这里](https://github.com/wb14123/couplet-dataset/releases/download/1.0/couplet.tar.gz)，或者[百度云](https://pan.baidu.com/s/1Zqnqq0VqZxv2c4jTNlZJGQ)(提取码: wude)。

@@ -1,5 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Optional
+import json
+import random
+import numpy as np
 
 import torch
 import typer
@@ -7,6 +11,59 @@ import typer
 from module import Tokenizer, init_model_by_key
 
 app = typer.Typer(help="Command-line demo for couplet generation.")
+
+
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def load_config(config_path: Path):
+    if config_path.exists():
+        try:
+            with config_path.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"failed to load config {config_path}: {e}")
+    return {}
+
+
+def resolve_param(name, cli_value, config, default):
+    return cli_value if cli_value is not None else config.get(name, default)
+
+
+def checkpoint_stem(args):
+    return f"{args.model}_ed{args.embed_dim}_hd{args.hidden_dim}_nl{args.n_layer}_ms{args.max_seq_len}"
+
+
+def checkpoint_filename(args, epoch: int | None = None):
+    stem = checkpoint_stem(args)
+    if epoch is None:
+        return f"{stem}.bin"
+    return f"{stem}_ep{epoch}.bin"
+
+
+def load_checkpoint(device, args):
+    candidates = []
+    if args.epoch == 0:
+        candidates.append(checkpoint_filename(args))
+        candidates.append(f"{args.model}.bin")  # legacy
+    else:
+        candidates.append(checkpoint_filename(args, args.epoch))
+        candidates.append(f"{args.model}_{args.epoch}.bin")  # legacy
+
+    for name in candidates:
+        path = Path(args.path) / name
+        if path.exists():
+            return torch.load(path, map_location=device)
+
+    raise FileNotFoundError(
+        f"no checkpoint found under {args.path}, tried: {', '.join(candidates)}"
+    )
 
 
 @app.command()
@@ -17,61 +74,79 @@ def main(
         "--path",
         help="Directory containing saved model checkpoints.",
     ),
-    vocab_path: Path = typer.Option(
-        Path("dataset/vocab.pkl"), "--vocab-path", help="Path to the vocab file."
+    vocab_path: Optional[Path] = typer.Option(
+        None, "--vocab-path", help="Path to the vocab file."
     ),
-    model: str = typer.Option(
-        "transformer", "-m", "--model", help="Model key to load."
+    model: Optional[str] = typer.Option(
+        None, "-m", "--model", help="Model key to load."
     ),
     epoch: int = typer.Option(0, "-e", "--epoch", help="Epoch checkpoint to load."),
-    max_seq_len: int = typer.Option(32, "--max-seq-len"),
-    embed_dim: int = typer.Option(128, "--embed-dim"),
-    n_layer: int = typer.Option(1, "--n-layer"),
-    hidden_dim: int = typer.Option(256, "--hidden-dim"),
-    ff_dim: int = typer.Option(512, "--ff-dim"),
-    n_head: int = typer.Option(8, "--n-head"),
-    embed_drop: float = typer.Option(0.2, "--embed-drop"),
-    hidden_drop: float = typer.Option(0.1, "--hidden-drop"),
     stop_flag: str = typer.Option("q", "-s", "--stop-flag", help="Exit token."),
     cuda: bool = typer.Option(False, "-c", "--cuda", help="Enable CUDA if available."),
-    mode: str = typer.Option(
-        "tagger",
-        "--mode",
-        "-m",
-        help="tagger: 序列标注；concat: 上联+[SEP]+下联 的单流自回归",
-    ),
+    max_seq_len: Optional[int] = typer.Option(None, "--max-seq-len"),
+    embed_dim: Optional[int] = typer.Option(None, "--embed-dim"),
+    hidden_dim: Optional[int] = typer.Option(None, "--hidden-dim"),
+    ff_dim: Optional[int] = typer.Option(None, "--ff-dim"),
+    n_layer: Optional[int] = typer.Option(None, "--n-layer"),
+    n_head: Optional[int] = typer.Option(None, "--n-head"),
+    embed_drop: Optional[float] = typer.Option(None, "--embed-drop"),
+    hidden_drop: Optional[float] = typer.Option(None, "--hidden-drop"),
+    seed: Optional[int] = typer.Option(None, "--seed"),
 ):
+    config = load_config(Path(path) / "config.json")
+
+    model = resolve_param("model", model, config, "gru")
+    mode = resolve_param("mode", None, config, "concat" if model == "gru" else "tagger")
+    seed = resolve_param("seed", seed, config, 42)
+
+    vocab_path = resolve_param(
+        "vocab_path", vocab_path, config, Path("dataset/vocab.pkl")
+    )
+    vocab_path = Path(vocab_path)
+
+    embed_dim = resolve_param("embed_dim", embed_dim, config, 128)
+    hidden_dim = resolve_param("hidden_dim", hidden_dim, config, 256)
+    ff_dim = resolve_param("ff_dim", ff_dim, config, 512)
+    n_layer = resolve_param("n_layer", n_layer, config, 1)
+    n_head = resolve_param("n_head", n_head, config, 8)
+    embed_drop = resolve_param("embed_drop", embed_drop, config, 0.2)
+    hidden_drop = resolve_param("hidden_drop", hidden_drop, config, 0.1)
+
+    # max_seq_len：若有 config 则直接信任其值（已包含 concat 加倍逻辑）
+    cli_max_seq_len = max_seq_len
+    max_seq_len = resolve_param("max_seq_len", max_seq_len, config, 32)
+    if (not config) or (cli_max_seq_len is not None):
+        # 仅在没有 config 或用户显式传入时才根据 concat 模式加倍
+        if mode == "concat":
+            max_seq_len = max_seq_len * 2
+
+    set_seed(seed)
+
     args = SimpleNamespace(
         path=path,
         vocab_path=vocab_path,
         model=model,
         epoch=epoch,
-        max_seq_len=max_seq_len,
-        embed_dim=embed_dim,
-        n_layer=n_layer,
-        hidden_dim=hidden_dim,
-        ff_dim=ff_dim,
-        n_head=n_head,
-        embed_drop=embed_drop,
-        hidden_drop=hidden_drop,
         stop_flag=stop_flag,
         cuda=cuda,
         mode=mode,
+        max_seq_len=max_seq_len,
+        embed_dim=embed_dim,
+        hidden_dim=hidden_dim,
+        ff_dim=ff_dim,
+        n_layer=n_layer,
+        n_head=n_head,
+        embed_drop=embed_drop,
+        hidden_drop=hidden_drop,
     )
+
     print("loading tokenizer...")
     tokenizer = Tokenizer.from_pretrained(Path(args.vocab_path))
     print("loading model...")
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
     model = init_model_by_key(args, tokenizer)
 
-    if args.epoch == 0:
-        state_dict = torch.load(
-            Path(args.path) / f"{args.model}.bin", map_location=device
-        )
-    else:
-        state_dict = torch.load(
-            Path(args.path) / f"{args.model}_{str(args.epoch)}.bin", map_location=device
-        )
+    state_dict = load_checkpoint(device, args)
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()

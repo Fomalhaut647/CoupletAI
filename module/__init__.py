@@ -1,6 +1,5 @@
 from .tokenizer import Tokenizer
 from .model import *
-import argparse
 
 
 def init_model_by_key(args, tokenizer: Tokenizer):
@@ -42,6 +41,15 @@ def init_model_by_key(args, tokenizer: Tokenizer):
         )
     elif key == "bilstmcnn":
         model = BiLSTMCNN(
+            tokenizer.vocab_size,
+            args.embed_dim,
+            args.hidden_dim,
+            args.n_layer,
+            args.embed_drop,
+            args.hidden_drop,
+        )
+    elif key == "gru":
+        model = GRU(
             tokenizer.vocab_size,
             args.embed_dim,
             args.hidden_dim,
